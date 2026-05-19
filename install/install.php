@@ -22,7 +22,7 @@ if ($state !== 'checked') {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="keywords" content="EasyIamge 2.0 即将完成安装!" />
     <meta name="description" content="EasyIamge 2.0 即将完成安装!" />
-    <link rel="shortcut icon" href="./../favicon.ico" type="image/x-icon" />
+    <link rel="shortcut icon" href="./../favicon.png" type="image/png" />
     <link rel="stylesheet" href="./../public/static/zui/css/zui.min.css?v1.10.0">
     <link rel="stylesheet" href="./../public/static/nprogress/nprogress.min.css?v1.10.0">
     <script type="application/javascript" src="./../public/static/zui/lib/jquery/jquery-3.6.4.min.js?v3.6.4"></script>

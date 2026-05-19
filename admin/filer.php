@@ -33,7 +33,7 @@ RexHelper::$users[$config['user']] = array(
 
 // 文件排除规则，仅正则表达式
 RexHelper::$ignore_list = array(
-    '/^\.git|.php|.htaccess|robots.txt|favicon.ico|README.md/', '/^admin|api|app|config|docs|install|public/'
+    '/^\.git|.php|.htaccess|robots.txt|favicon.png|README.md/', '/^admin|api|app|config|docs|install|public/'
 );
 
 session_start();
@@ -51,7 +51,7 @@ session_start();
     <title>文件管理 - <?php echo $config['title']; ?></title>
     <meta name="keywords" content="<?php echo  $config['keywords']; ?>" />
     <meta name="description" content="<?php echo  $config['description']; ?>" />
-    <link rel="shortcut icon" href="<?php static_cdn(); ?>/favicon.ico" type="image/x-icon" />
+    <link rel="shortcut icon" href="<?php static_cdn(); ?>/favicon.png" type="image/png" />
     <link rel="stylesheet" href="<?php static_cdn(); ?>/public/static/zui/css/zui.min.css">
     <script type="application/javascript" src="<?php static_cdn(); ?>/public/static/zui/lib/jquery/jquery-3.6.0.min.js"></script>
     <script type="application/javascript" src="<?php static_cdn(); ?>/public/static/zui/js/zui.min.js"></script>

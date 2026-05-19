@@ -12,7 +12,7 @@
 	<title><?php echo $config['title']; ?></title>
 	<meta name="keywords" content="<?php echo $config['keywords']; ?>" />
 	<meta name="description" content="<?php echo $config['description']; ?>" />
-	<link rel="shortcut icon" type="image/x-icon" href="<?php static_cdn(); ?>/favicon.ico" />
+	<link rel="shortcut icon" type="image/png" href="<?php static_cdn(); ?>/favicon.png" />
 	<link rel="stylesheet" href="<?php static_cdn(); ?>/public/static/zui/css/zui.min.css">
 	<link rel="stylesheet" href="<?php static_cdn(); ?>/public/static/nprogress/nprogress.min.css">
 	<link rel="stylesheet" href="<?php static_cdn(); ?>/public/static/zui/theme/zui-theme-<?php echo $config['theme']; ?>.css">
@@ -48,6 +48,9 @@
 				<?php endif; ?>
 				<?php /** 非管理不显示设置 */ if (is_who_login('admin')) : ?>
 					<li><a href="<?php echo $config['domain']; ?>/admin/admin.inc.php"><i class="icon icon-cogs"></i> 设置</a></li>
+				<?php endif; ?>
+				<?php /** CNB图床管理 */ if (is_who_login('admin') && $config['cnb_status']) : ?>
+					<li><a href="<?php echo $config['domain']; ?>/admin/cnb_manager.php"><i class="icon icon-cloud"></i> CNB管理</a></li>
 				<?php endif; ?>
 				<?php /** 非管理或未开启不显示统计 */ if ($config['chart_on'] && is_who_login('admin')) : ?>
 					<li><a href="<?php echo $config['domain']; ?>/admin/chart.php"><i class="icon icon-pie-chart"></i> 统计</a></li>

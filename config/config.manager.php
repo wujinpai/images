@@ -95,7 +95,7 @@ $allowed_upload_extensions = '';
 // full path, e.g http://example.com/favicon.png
 // local path, e.g images/icons/favicon.png
 // Favicon图标路径
-$favicon_path = $config['domain'] . '/favicon.ico';
+$favicon_path = $config['domain'] . '/favicon.png';
 
 // Files and folders to excluded from listing
 // e.g. array('myfile.html', 'personal-folder', '*.php', ...)

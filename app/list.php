@@ -15,8 +15,8 @@ if ($config['ad_top']) echo $config['ad_top_info'];
       <?php exit(require_once __DIR__ . '/footer.php'); ?>
       <?php else :
       $listDate = $config['listDate'];
-      $keyNum = isset($_GET['num']) ? $_GET['num'] : $config['listNumber'];
-      $keyNum = preg_replace("/[\W]/", "", trim($keyNum));
+      $keyNum = isset($_GET['num']) ? intval($_GET['num']) : intval($config['listNumber']);
+      if ($keyNum < 1) $keyNum = 20;
 
       if ($config['cnb_status']) :
         $cnbDate = isset($_GET['date']) ? preg_replace("/[^\d-]/", "", $_GET['date']) : date('Y-m-d');
@@ -32,28 +32,55 @@ if ($config['ad_top']) echo $config['ad_top_info'];
         }
 
         $cnbIndex = cnb_read_index($cnbDate);
-        $cnbCount = count($cnbIndex);
-        $cnbTodayCount = cnb_get_index_count(date('Y-m-d'));
-        $cnbYesterdayCount = cnb_get_index_count(date('Y-m-d', strtotime("-1 day")));
+        $cnbVideoIndex = cnb_read_video_index($cnbDate);
+        $cnbMerged = array();
+        foreach ($cnbIndex as $k => $v) {
+            $v['fileType'] = 'image';
+            $cnbMerged[$k] = $v;
+        }
+        foreach ($cnbVideoIndex as $k => $v) {
+            $v['fileType'] = 'video';
+            $cnbMerged['video_' . $k] = $v;
+        }
+        uasort($cnbMerged, function($a, $b) {
+            $ta = isset($a['date']) ? strtotime($a['date']) : 0;
+            $tb = isset($b['date']) ? strtotime($b['date']) : 0;
+            return $tb - $ta;
+        });
+        $cnbCount = count($cnbMerged);
+        $cnbTodayCount = cnb_get_index_count(date('Y-m-d')) + cnb_get_video_index_count(date('Y-m-d'));
+        $cnbYesterdayCount = cnb_get_index_count(date('Y-m-d', strtotime("-1 day"))) + cnb_get_video_index_count(date('Y-m-d', strtotime("-1 day")));
 
-        if (empty($cnbIndex)) : ?>
+        if (empty($cnbMerged)) : ?>
           <div class="alert alert-danger">今天还没有上传的图片哟~~ <br />快来上传第一张吧~!</div>
         <?php else : ?>
           <ul id="viewjs">
             <div class="cards listNum">
               <?php
               $cnbKey = 0;
-              foreach ($cnbIndex as $fileName => $item) {
-                if ($cnbKey >= $keyNum) break;
+              foreach ($cnbMerged as $fileName => $item) {
+                $isVideo = isset($item['fileType']) && $item['fileType'] === 'video';
                 $imgUrl = $item['url'];
                 $linkUrl = $item['url'];
+                $mdLink = '![' . basename($imgUrl) . '](' . $linkUrl . ')';
+                $htmlLink = $isVideo
+                    ? '<video src="' . htmlspecialchars($linkUrl) . '" controls></video>'
+                    : '<img src="' . htmlspecialchars($linkUrl) . '" alt="' . htmlspecialchars(basename($linkUrl)) . '">';
               ?>
                 <div class="col-lg-3 col-md-4 col-sm-6 col-xs-12">
                   <div class="card">
-                    <li><img src="<?php static_cdn(); ?>/public/images/loading.svg" data-image="<?php echo $imgUrl; ?>" data-original="<?php echo $imgUrl; ?>" alt="简单图床-EasyImage"></li>
+                    <?php if ($isVideo): ?>
+                    <div class="video-thumb" style="width:100%;height:258px;display:flex;align-items:center;justify-content:center;background:#000;border-radius:5px 5px 0 0;overflow:hidden;">
+                      <video src="<?php echo $imgUrl; ?>" style="width:100%;height:100%;object-fit:contain;" controls preload="metadata"></video>
+                    </div>
+                    <?php else: ?>
+                    <li><img src="<?php static_cdn(); ?>/public/images/loading.svg" data-image="<?php echo $imgUrl; ?>" data-original="<?php echo $imgUrl; ?>" alt="CNB图床"></li>
+                    <?php endif; ?>
                     <div class="bottom-bar">
                       <a href="<?php echo $linkUrl; ?>" target="_blank"><i class="icon icon-picture" data-toggle="tooltip" title="打开" style="margin-left:10px;"></i></a>
-                      <a href="#" class="copy" data-clipboard-text="<?php echo $linkUrl; ?>" data-toggle="tooltip" title="复制链接" style="margin-left:10px;"><i class="icon icon-copy"></i></a>
+                      <a href="#" class="copy" data-clipboard-text="<?php echo htmlspecialchars($linkUrl); ?>" data-toggle="tooltip" title="复制直链" style="margin-left:10px;"><i class="icon icon-copy"></i></a>
+                      <a href="#" class="copy" data-clipboard-text="<?php echo htmlspecialchars($mdLink); ?>" data-toggle="tooltip" title="复制Markdown" style="margin-left:10px;"><i class="icon icon-code"></i></a>
+                      <a href="#" class="copy" data-clipboard-text="<?php echo htmlspecialchars($htmlLink); ?>" data-toggle="tooltip" title="复制HTML" style="margin-left:10px;"><i class="icon icon-font"></i></a>
                       <?php if (!empty($config['report'])) : ?>
                         <a href="<?php echo $config['report'] . '?Website1=' . $linkUrl; ?>" target="_blank"><i class="icon icon-question-sign" data-toggle="tooltip" title="举报文件" style="margin-left:10px;"></i></a>
                       <?php endif; ?>
@@ -104,18 +131,23 @@ if ($config['ad_top']) echo $config['ad_top_info'];
         <?php else : ?>
           <ul id="viewjs">
             <div class="cards listNum">
-              <?php foreach ($fileArr as $key => $value) {
+              <?php $fileArrReversed = array_reverse($fileArr);
+              foreach ($fileArrReversed as $key => $value) {
                 if ($key < $keyNum) {
                   $relative_path = config_path($path) . $value;
                   $imgUrl = $config['domain'] . $relative_path;
                   $linkUrl = rand_imgurl() . $config_path . $value;
+                  $mdLink = '![' . $value . '](' . $linkUrl . ')';
+                  $htmlLink = '<img src="' . htmlspecialchars($linkUrl) . '" alt="' . htmlspecialchars($value) . '">';
               ?>
                   <div class="col-lg-3 col-md-4 col-sm-6 col-xs-12">
                     <div class="card">
-                      <li><img src="<?php static_cdn(); ?>/public/images/loading.svg" data-image="<?php echo creat_thumbnail_by_list($imgUrl); ?>" data-original="<?php echo $imgUrl; ?>" alt="简单图床-EasyImage"></li>
+                      <li><img src="<?php static_cdn(); ?>/public/images/loading.svg" data-image="<?php echo creat_thumbnail_by_list($imgUrl); ?>" data-original="<?php echo $imgUrl; ?>" alt="CNB图床"></li>
                       <div class="bottom-bar">
                         <a href="<?php echo $linkUrl; ?>" target="_blank"><i class="icon icon-picture" data-toggle="tooltip" title="打开" style="margin-left:10px;"></i></a>
-                        <a href="#" class="copy" data-clipboard-text="<?php echo $linkUrl; ?>" data-toggle="tooltip" title="复制链接" style="margin-left:10px;"><i class="icon icon-copy"></i></a>
+                        <a href="#" class="copy" data-clipboard-text="<?php echo htmlspecialchars($linkUrl); ?>" data-toggle="tooltip" title="复制直链" style="margin-left:10px;"><i class="icon icon-copy"></i></a>
+                        <a href="#" class="copy" data-clipboard-text="<?php echo htmlspecialchars($mdLink); ?>" data-toggle="tooltip" title="复制Markdown" style="margin-left:10px;"><i class="icon icon-code"></i></a>
+                        <a href="#" class="copy" data-clipboard-text="<?php echo htmlspecialchars($htmlLink); ?>" data-toggle="tooltip" title="复制HTML" style="margin-left:10px;"><i class="icon icon-font"></i></a>
                         <?php if ($config['show_exif_info'] || is_who_login('admin')) : ?>
                           <a href="/app/info.php?img=<?php echo $relative_path; ?>" data-toggle="tooltip" title="详细信息" target="_blank" style="margin-left:10px;"><i class="icon icon-info-sign"></i></a>
                         <?php endif; ?>

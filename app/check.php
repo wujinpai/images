@@ -17,7 +17,7 @@ file_put_contents(APP_ROOT . '/config/EasyIamge.lock', '安装环境检测锁定
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">x</span><span class="sr-only">关闭</span></button>
                 <h4 class="modal-title">
-                    <i class="icon icon-heart"> </i><a href="https://github.com/icret/EasyImages2.0" target="_blank">简单图床-EasyImage2.0</a> 安装环境检测
+                    <i class="icon icon-heart"> </i><a href="https://github.com/icret/EasyImages2.0" target="_blank">CNB图床</a> 安装环境检测
                 </h4>
             </div>
             <div class="modal-body">

@@ -16,12 +16,24 @@ mustLogin();
       </div>
     </div>
   <?php endif; ?>
+
+  <!-- 图片/视频上传切换 -->
+  <ul class="nav nav-pills" style="margin-bottom:10px;">
+    <li class="active"><a href="#uploadImage" data-toggle="tab"><i class="icon icon-picture"></i> 图片上传</a></li>
+    <?php if ($config['cnb_status']): ?>
+    <li><a href="#uploadVideo" data-toggle="tab"><i class="icon icon-film"></i> 视频上传</a></li>
+    <?php endif; ?>
+  </ul>
+
+  <div class="tab-content">
+    <!-- 图片上传 -->
+    <div class="tab-pane fade active in" id="uploadImage">
   <div id='upShowID' class="uploader col-md-12 clo-xs-12" data-ride="uploader" data-url="/app/upload.php">
     <div class="uploader-message text-center">
       <div class="content"></div>
       <button type="button" class="close">x</button>
     </div>
-    <div class="uploader-files file-list file-list-lg file-rename-by-click" data-drag-placeholder="选择文件/Ctrl+V粘贴/拖拽至此处" style="min-height: 188px; border-style: dashed;"></div>
+    <div class="uploader-files file-list file-list-lg file-rename-by-click" data-drag-placeholder="选择图片/Ctrl+V粘贴/拖拽至此处" style="min-height: 188px; border-style: dashed;"></div>
     <div class="uploader-actions">
       <button type="button" class="btn btn-link uploader-btn-browse"><i class="icon icon-plus"></i> 选择文件</button>
       <button type="button" class="btn btn-link uploader-btn-start"><i class="icon icon-cloud-upload"></i> 开始上传</button>
@@ -29,6 +41,26 @@ mustLogin();
       <div class="uploader-status pull-right text-muted hidden-xs"></div>
       <div class="uploader-status pull-right text-muted col-xs-12 text-ellipsis visible-xs"></div>
     </div>
+  </div>
+    </div>
+
+    <?php if ($config['cnb_status']): ?>
+    <!-- 视频上传 -->
+    <div class="tab-pane fade" id="uploadVideo">
+  <div class="col-md-12" style="padding:0;">
+    <div id="videoDropZone" style="min-height:188px;border:2px dashed #ccc;border-radius:6px;text-align:center;padding:40px 20px;cursor:pointer;transition:border-color 0.3s;" onclick="document.getElementById('videoFileInput').click()">
+      <i class="icon icon-film" style="font-size:40px;color:#999;"></i>
+      <p style="color:#999;margin-top:10px;">点击选择视频文件 或 拖拽视频至此处</p>
+      <p style="color:#bbb;font-size:12px;">支持 mp4, webm, ogg, mov, avi, mkv, flv, wmv, m4v, 3gp, ts</p>
+    </div>
+    <input type="file" id="videoFileInput" accept="video/*,.mp4,.webm,.ogg,.mov,.avi,.mkv,.flv,.wmv,.m4v,.3gp,.ts" multiple style="display:none;" onchange="handleVideoFiles(this.files)">
+    <div id="videoFileList" style="margin-top:10px;"></div>
+    <div id="videoUploadBtn" style="margin-top:10px;text-align:center;display:none;">
+      <button class="btn btn-primary" onclick="startVideoUpload()"><i class="icon icon-cloud-upload"></i> 开始上传</button>
+    </div>
+  </div>
+    </div>
+    <?php endif; ?>
   </div>
   <div class="col-md-12 clo-xs-12">
     <ul class="nav nav-tabs">
@@ -172,29 +204,33 @@ mustLogin();
     },
     <?php echo imgRatio(); ?>,
     responseHandler: function(responseObject, file) {
-      var obj = JSON.parse(responseObject.response); //由JSON字符串转换为JSON对象
-      console.log(file); // 输出上传log
-      console.log(obj); // 输出回传log
+      var obj = JSON.parse(responseObject.response);
+      console.log(file);
+      console.log(obj);
       if (obj.code === 200) {
         $("#links").append(obj.url + "\r\n");
-        $("#bbscode").append("[img]" + obj.url + "[/img]\r\n");
-        $("#markdown").append("![" + obj.srcName + "](" + obj.url + ")\r\n");
-        $("#html").append('&lt;img src="' + obj.url + '" alt="' + obj.srcName + '" /&gt;\r\n');
+        if (obj.fileType === 'video') {
+          $("#bbscode").append("[video]" + obj.url + "[/video]\r\n");
+          $("#markdown").append("[" + obj.srcName + "](" + obj.url + ")\r\n");
+          $("#html").append('&lt;video src="' + obj.url + '" controls width="100%"&gt;&lt;/video&gt;\r\n');
+        } else {
+          $("#bbscode").append("[img]" + obj.url + "[/img]\r\n");
+          $("#markdown").append("![" + obj.srcName + "](" + obj.url + ")\r\n");
+          $("#html").append('&lt;img src="' + obj.url + '" alt="' + obj.srcName + '" /&gt;\r\n');
+        }
         $("#thumb").append(obj.thumb + "\r\n");
         $("#del").append(obj.del + "\r\n");
 
-        // 上传成功提示
         new $.zui.Messager(obj.srcName + " 上传成功", {
           type: "primary",
           placement: 'bottom-right',
           icon: "check"
         }).show();
 
-        try { // 储存上传历史
+        try {
           console.log('history localStorage success');
           $.zui.store.set(obj.srcName, obj)
         } catch (err) {
-          // 失败提示
           $.zui.messager.show('存储上传记录失败' + err, {
             icon: 'bell',
             time: 4000,
@@ -204,7 +240,6 @@ mustLogin();
           console.log('localStorage failed:' + err);
         }
       } else {
-        // 上传失败提示
         new $.zui.Messager(obj.message, {
           type: "danger",
           placement: 'bottom-right',
@@ -214,6 +249,263 @@ mustLogin();
       }
     },
   });
+
+  <?php if ($config['cnb_status']): ?>
+  var pendingVideos = [];
+
+  var CNB_MAX_SIZE = 60 * 1024 * 1024;
+
+  function compressVideo(file, callback) {
+    var sizeMB = (file.size / 1048576).toFixed(1);
+    if (file.size <= CNB_MAX_SIZE) {
+      callback(file);
+      return;
+    }
+    new $.zui.Messager('文件 ' + file.name + ' (' + sizeMB + 'MB) 超过64MB限制，正在压缩...', {type: 'warning', icon: 'compress', placement: 'bottom-right'}).show();
+
+    var video = document.createElement('video');
+    video.muted = true;
+    video.playsInline = true;
+    var url = URL.createObjectURL(file);
+    video.src = url;
+
+    video.onloadedmetadata = function() {
+      var duration = video.duration;
+      if (!duration || duration <= 0) {
+        URL.revokeObjectURL(url);
+        callback(file);
+        return;
+      }
+      var targetBitrate = (CNB_MAX_SIZE * 8 * 0.85) / duration;
+      if (targetBitrate < 200000) targetBitrate = 200000;
+
+      var canvas = document.createElement('canvas');
+      var scale = 1;
+      if (video.videoWidth > 1280) scale = 1280 / video.videoWidth;
+      canvas.width = Math.round(video.videoWidth * scale);
+      canvas.height = Math.round(video.videoHeight * scale);
+      var ctx = canvas.getContext('2d');
+
+      var stream = canvas.captureStream(30);
+      if (video.captureStream) {
+        var audioStream = video.captureStream();
+        audioStream.getAudioTracks().forEach(function(t) { stream.addTrack(t); });
+      }
+
+      var mimeType = 'video/webm;codecs=vp8,opus';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'video/webm';
+      }
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = '';
+      }
+
+      if (!mimeType) {
+        URL.revokeObjectURL(url);
+        new $.zui.Messager('浏览器不支持视频压缩，请手动压缩后上传', {type: 'danger', icon: 'times'}).show();
+        callback(null);
+        return;
+      }
+
+      var recorder = new MediaRecorder(stream, {
+        mimeType: mimeType,
+        videoBitsPerSecond: targetBitrate
+      });
+      var chunks = [];
+      recorder.ondataavailable = function(e) {
+        if (e.data && e.data.size > 0) chunks.push(e.data);
+      };
+      recorder.onstop = function() {
+        var blob = new Blob(chunks, {type: mimeType.split(';')[0]});
+        URL.revokeObjectURL(url);
+        var newName = file.name.replace(/\.\w+$/, '.webm');
+        var compressed = new File([blob], newName, {type: blob.type});
+        var newSizeMB = (compressed.size / 1048576).toFixed(1);
+        if (compressed.size > CNB_MAX_SIZE) {
+          new $.zui.Messager('压缩后仍超过64MB (' + newSizeMB + 'MB)，请缩短视频或降低分辨率', {type: 'danger', icon: 'times'}).show();
+          callback(null);
+          return;
+        }
+        new $.zui.Messager('压缩完成: ' + sizeMB + 'MB → ' + newSizeMB + 'MB', {type: 'success', icon: 'ok-sign'}).show();
+        callback(compressed);
+      };
+      recorder.onerror = function() {
+        URL.revokeObjectURL(url);
+        new $.zui.Messager('视频压缩失败，请手动压缩后上传', {type: 'danger', icon: 'times'}).show();
+        callback(null);
+      };
+
+      video.currentTime = 0;
+      video.onseeked = function() {
+        video.play();
+        recorder.start(1000);
+      };
+
+      video.onended = function() {
+        recorder.stop();
+      };
+    };
+
+    video.onerror = function() {
+      URL.revokeObjectURL(url);
+      new $.zui.Messager('无法读取视频文件', {type: 'danger', icon: 'times'}).show();
+      callback(null);
+    };
+  }
+
+  function handleVideoFiles(files) {
+    var videoExts = ['mp4','webm','ogg','mov','avi','mkv','flv','wmv','m4v','3gp','ts'];
+    for (var i = 0; i < files.length; i++) {
+      var ext = files[i].name.split('.').pop().toLowerCase();
+      if (videoExts.indexOf(ext) === -1) {
+        new $.zui.Messager(files[i].name + ' 不是视频文件', {type: 'danger', icon: 'times'}).show();
+        continue;
+      }
+      pendingVideos.push(files[i]);
+    }
+    renderVideoList();
+    document.getElementById('videoFileInput').value = '';
+  }
+
+  function renderVideoList() {
+    var html = '';
+    for (var i = 0; i < pendingVideos.length; i++) {
+      var f = pendingVideos[i];
+      var sizeMB = (f.size / 1048576).toFixed(1);
+      html += '<div class="alert alert-info" style="padding:8px 12px;margin-bottom:5px;" id="vitem-' + i + '">';
+      html += '<i class="icon icon-film"></i> ' + f.name + ' <small class="text-muted">(' + sizeMB + ' MB)</small>';
+      html += '<button class="btn btn-mini btn-danger pull-right" onclick="removeVideo(' + i + ')"><i class="icon icon-remove"></i></button>';
+      html += '<div class="progress" style="display:none;margin-top:5px;margin-bottom:0;" id="vprog-' + i + '"><div class="progress-bar" style="width:0%"></div></div>';
+      html += '</div>';
+    }
+    document.getElementById('videoFileList').innerHTML = html;
+    document.getElementById('videoUploadBtn').style.display = pendingVideos.length > 0 ? 'block' : 'none';
+  }
+
+  function removeVideo(idx) {
+    pendingVideos.splice(idx, 1);
+    renderVideoList();
+  }
+
+  function startVideoUpload() {
+    if (pendingVideos.length === 0) return;
+    var videos = pendingVideos.slice();
+    pendingVideos = [];
+    renderVideoList();
+
+    var idx = 0;
+    function uploadNext() {
+      if (idx >= videos.length) return;
+      var file = videos[idx];
+      var curIdx = idx;
+      idx++;
+
+      compressVideo(file, function(compressedFile) {
+        if (!compressedFile) {
+          uploadNext();
+          return;
+        }
+
+        var formData = new FormData();
+        formData.append('file', compressedFile);
+        formData.append('sign', new Date().getTime() / 1000 | 0);
+
+        var progEl = document.getElementById('vprog-' + curIdx);
+        if (progEl) {
+          progEl.style.display = 'block';
+        }
+
+        var xhr = new XMLHttpRequest();
+        xhr.withCredentials = true;
+        xhr.timeout = 600000;
+        xhr.upload.onprogress = function(e) {
+          if (e.lengthComputable && progEl) {
+            var pct = Math.round((e.loaded / e.total) * 100);
+            progEl.querySelector('.progress-bar').style.width = pct + '%';
+            NProgress.set(pct / 100);
+          }
+        };
+        xhr.onload = function() {
+          if (progEl) {
+            progEl.querySelector('.progress-bar').style.width = '100%';
+            progEl.querySelector('.progress-bar').className = 'progress-bar progress-bar-success';
+          }
+          try {
+            var obj = JSON.parse(xhr.responseText);
+            if (obj.code === 200) {
+              $("#links").append(obj.url + "\r\n");
+              $("#bbscode").append("[video]" + obj.url + "[/video]\r\n");
+              $("#markdown").append("[" + obj.srcName + "](" + obj.url + ")\r\n");
+              $("#html").append('&lt;video src="' + obj.url + '" controls width="100%"&gt;&lt;/video&gt;\r\n');
+              $("#thumb").append(obj.url + "\r\n");
+              $("#del").append(obj.del + "\r\n");
+
+              new $.zui.Messager(obj.srcName + " 视频上传成功", {
+                type: "primary", placement: 'bottom-right', icon: "check"
+              }).show();
+
+              try { $.zui.store.set(obj.srcName, obj); } catch (err) {}
+            } else {
+              new $.zui.Messager(obj.message || '上传失败', {
+                type: "danger", placement: 'bottom-right', icon: "times"
+              }).show();
+              if (progEl) {
+                progEl.querySelector('.progress-bar').className = 'progress-bar progress-bar-danger';
+              }
+            }
+          } catch (err) {
+            new $.zui.Messager('上传响应解析失败', {type: 'danger', icon: 'times'}).show();
+          }
+          uploadNext();
+        };
+        xhr.onerror = function() {
+          new $.zui.Messager(file.name + ' 上传失败(网络错误)', {type: 'danger', icon: 'times'}).show();
+          if (progEl) {
+            progEl.querySelector('.progress-bar').className = 'progress-bar progress-bar-danger';
+          }
+          uploadNext();
+        };
+        xhr.ontimeout = function() {
+          new $.zui.Messager(file.name + ' 上传超时，文件可能过大', {type: 'danger', icon: 'times'}).show();
+          if (progEl) {
+            progEl.querySelector('.progress-bar').className = 'progress-bar progress-bar-danger';
+          }
+          uploadNext();
+        };
+        xhr.open('POST', './app/video_upload.php', true);
+        xhr.send(formData);
+      });
+    }
+    uploadNext();
+  }
+
+  var dropZone = document.getElementById('videoDropZone');
+  var videoTab = document.getElementById('uploadVideo');
+  if (videoTab) {
+    videoTab.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); });
+    videoTab.addEventListener('drop', function(e) { e.preventDefault(); e.stopPropagation(); });
+  }
+  if (dropZone) {
+    dropZone.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.style.borderColor = '#3280fc';
+    });
+    dropZone.addEventListener('dragleave', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.style.borderColor = '#ccc';
+    });
+    dropZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.style.borderColor = '#ccc';
+      if (e.dataTransfer.files.length > 0) {
+        handleVideoFiles(e.dataTransfer.files);
+      }
+    });
+  }
+  <?php endif; ?>
 </script>
 <?php
 /** 环境检测 */

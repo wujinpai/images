@@ -26,10 +26,21 @@ if (isset($_GET['hash'])) {
     $delHash = urlHash($delHash, 1);
 
     if ($config['image_recycl']) {
-        // 如果开启回收站则进入回收站
         if (checkImg($delHash, 3, 'recycle/') === true) {
 
-            any_upload($delHash, $delHash, 'delete'); // FTP删除
+            any_upload($delHash, $delHash, 'delete');
+
+            if ($config['cnb_status']) {
+                require_once __DIR__ . '/cnb_upload.php';
+                $parsedUrl = parse_url($delHash);
+                if (!empty($parsedUrl['path'])) {
+                    if (preg_match('/-\/imgs\/(.+)/', $parsedUrl['path'], $m)) {
+                        cnb_delete_img($m[1]);
+                    } elseif (preg_match('/img-api\/(.+)/', $parsedUrl['path'], $m)) {
+                        cnb_delete_img($m[1]);
+                    }
+                }
+            }
 
             exit(json_encode(array(
                 'code' => 200,
@@ -50,9 +61,21 @@ if (isset($_GET['hash'])) {
             ), JSON_UNESCAPED_UNICODE));
         }
     } else {
-        getDel($delHash, 'url'); // 直接删除
+        getDel($delHash, 'url');
 
-        any_upload($delHash, $delHash, 'delete'); // FTP删除
+        any_upload($delHash, $delHash, 'delete');
+
+        if ($config['cnb_status']) {
+            require_once __DIR__ . '/cnb_upload.php';
+            $parsedUrl = parse_url($delHash);
+            if (!empty($parsedUrl['path'])) {
+                if (preg_match('/-\/imgs\/(.+)/', $parsedUrl['path'], $m)) {
+                    cnb_delete_img($m[1]);
+                } elseif (preg_match('/img-api\/(.+)/', $parsedUrl['path'], $m)) {
+                    cnb_delete_img($m[1]);
+                }
+            }
+        }
 
         exit(json_encode(array(
             'code' => 200,
@@ -84,6 +107,19 @@ if (isset($_POST['del_url_array'])) {
         getDel($del_url_array[$i], 'url');
         // FTP删除
         any_upload($del_url_array[$i], $del_url_array[$i], 'delete');
+
+        // CNB图床同步删除
+        if ($config['cnb_status']) {
+            require_once __DIR__ . '/cnb_upload.php';
+            $parsedUrl = parse_url($del_url_array[$i]);
+            if (!empty($parsedUrl['path'])) {
+                if (preg_match('/-\/imgs\/(.+)/', $parsedUrl['path'], $m)) {
+                    cnb_delete_img($m[1]);
+                } elseif (preg_match('/img-api\/(.+)/', $parsedUrl['path'], $m)) {
+                    cnb_delete_img($m[1]);
+                }
+            }
+        }
     }
     echo json_encode(array(
         'code' => 200,
@@ -111,6 +147,19 @@ if (isset($_POST['mode']) && $_POST['mode'] === 'delete') {
     $reslut = easyimage_delete($postURL, 'url');
     // FTP删除
     any_upload($postURL, $postURL, 'delete');
+
+    // CNB图床同步删除
+    if ($config['cnb_status']) {
+        require_once __DIR__ . '/cnb_upload.php';
+        $parsedUrl = parse_url($postURL);
+        if (!empty($parsedUrl['path'])) {
+            if (preg_match('/-\/imgs\/(.+)/', $parsedUrl['path'], $m)) {
+                cnb_delete_img($m[1]);
+            } elseif (preg_match('/img-api\/(.+)/', $parsedUrl['path'], $m)) {
+                cnb_delete_img($m[1]);
+            }
+        }
+    }
 
     if ($reslut) {
         exit(json_encode(array(
@@ -303,6 +352,19 @@ if (isset($_POST['url_admin_inc'])) {
     $del_url = $_POST['url_admin_inc'];
     if ($config['hide_path']) {
         $del_url = $config['domain'] . $config['path'] . parse_url($del_url)['path'];
+    }
+
+    // CNB图床同步删除
+    if ($config['cnb_status']) {
+        require_once __DIR__ . '/cnb_upload.php';
+        $parsedUrl = parse_url($del_url);
+        if (!empty($parsedUrl['path'])) {
+            if (preg_match('/-\/imgs\/(.+)/', $parsedUrl['path'], $m)) {
+                cnb_delete_img($m[1]);
+            } elseif (preg_match('/img-api\/(.+)/', $parsedUrl['path'], $m)) {
+                cnb_delete_img($m[1]);
+            }
+        }
     }
 
     if (easyimage_delete($del_url, 'url') === TRUE) {

@@ -76,6 +76,62 @@ if ($config['chunks']) {
     $handle = new Upload($_FILES['file'], 'zh_CN');
 }
 
+$videoExts = array('mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv', 'flv', 'wmv', 'm4v', '3gp', 'ts');
+$uploadFileExt = strtolower(pathinfo($_FILES['file']['name'], PATHINFO_EXTENSION));
+
+if (in_array($uploadFileExt, $videoExts) && $config['cnb_status']) {
+    ini_set('max_execution_time', '600');
+    $tmpFile = $_FILES['file']['tmp_name'];
+    $fileSize = $_FILES['file']['size'];
+    $sourceName = pathinfo($_FILES['file']['name'], PATHINFO_FILENAME);
+    if (empty($sourceName)) $sourceName = $_FILES['file']['name'];
+    $newName = date('YmdHis') . mt_rand(1000, 9999) . '.' . $uploadFileExt;
+
+    if ($fileSize > 64 * 1024 * 1024) {
+        exit(json_encode(
+            array(
+                "result"  => "failed",
+                "code"    => 400,
+                "message" => "文件大小超过CNB平台限制(64MiB)，请压缩视频后重新上传",
+            ),
+            JSON_UNESCAPED_UNICODE
+        ));
+    }
+
+    $cnbResult = cnb_upload_file($tmpFile, $newName, 'files');
+
+    if (isset($tmpFile) && file_exists($tmpFile)) {
+        @unlink($tmpFile);
+    }
+
+    if (!$cnbResult['success']) {
+        exit(json_encode(
+            array(
+                "result"  => "failed",
+                "code"    => 500,
+                "message" => "视频上传到 cnb.cool 失败: " . $cnbResult['message'],
+            ),
+            JSON_UNESCAPED_UNICODE
+        ));
+    }
+
+    $videoUrl = $cnbResult['url'];
+    $videoPath = $cnbResult['filePath'];
+    cnb_write_video_index($newName, $videoPath, $videoUrl, $sourceName, $fileSize);
+    cnb_update_asset_count(1);
+
+    $reJson = array(
+        "result"  => "success",
+        "code"    => 200,
+        "url"     => $videoUrl,
+        "srcName" => $sourceName,
+        "thumb"   => $videoUrl,
+        "del"     => "Admin closed user delete",
+        "fileType" => "video",
+    );
+    exit(json_encode($reJson, JSON_UNESCAPED_UNICODE));
+}
+
 if ($handle->uploaded) {
     if ($config['allowed']) {
         $handle->allowed = array('image/*');
@@ -155,6 +211,7 @@ if ($handle->uploaded) {
                 $delUrl = "Admin closed user delete";
                 @unlink($localFilePath);
                 cnb_write_index($handle->file_dst_name, $cnbResult['imgPath'], $cnbResult['url'], $handle->file_src_name_body, $handle->file_src_size);
+                cnb_update_asset_count(1);
             } else {
                 if (file_exists($localFilePath)) @unlink($localFilePath);
                 $reJson = array(

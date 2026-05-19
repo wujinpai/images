@@ -1369,6 +1369,9 @@ auto_delete(); //定时删除
             <h5 class="header-dividing">文件管理 <small>由作者定制,非必要请勿替换</small></h5>
             <a class="btn btn-mini btn-primary" href="/admin/manager.php?p=<?php echo date('Y/m/d'); ?> " target="_blank" data-toggle="tooltip" title="使用Tinyfilemanager管理文件"><i class="icon icon-folder-open"> 文件管理</i></a>
             <a class="btn btn-mini btn-primary" href="filer.php?path=<?php echo $config['path'] . date('Y/m/d'); ?> " target="_blank" data-toggle="tooltip" title="使用web-indexr管理文件"><i class="icon icon-folder-close"> 文件管理</i></a>
+            <?php if ($config['cnb_status']): ?>
+            <a class="btn btn-mini btn-success" href="cnb_manager.php" target="_blank" data-toggle="tooltip" title="管理CNB图床图片和视频，支持删除同步"><i class="icon icon-cloud"> CNB图床管理</i></a>
+            <?php endif; ?>
             <h5 class="header-dividing">删除文件 <small>* 删除后不可恢复</small></h5>
             <form class="form-inline" method="POST" style="margin-bottom: 5px;">
                 <p id="delimgurl"></p>
